@@ -4,7 +4,7 @@
 # File Created: Saturday, 24th May 2025 1:33:36 pm
 # Author: Josh.5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 24th May 2025 10:43:39 pm
+# Last Modified: Saturday, 24th May 2025 10:50:52 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -41,7 +41,7 @@ print_step_fail() {
 
 press_any_key_to_exit() {
     local exit_code=${1:-0}
-    printf "\nPress any key to return [%s]..." "$exit_code"
+    printf "\nPress any key to exit [%s]..." "$exit_code"
     IFS= read -rsn1 _
     exit "$exit_code"
 }
@@ -193,6 +193,7 @@ detect_installed_systems() {
         done <"$ini_file"
 
         [ -n "$libretro_name" ] && printf "%s\n" "$libretro_name" >>"${config_file:?}"
+        print_step_point "${system_name:?}: ${libretro_name:?}"
     done
 }
 
@@ -222,6 +223,7 @@ enable_cheats_cfg
 
 print_step_header "Detecting installed systems"
 detect_installed_systems
+print_step_ok "Installed systems imported"
 
 if [ ! -s "${config_file:?}" ]; then
     print_step_fail "No supported systems found in Roms folder"
