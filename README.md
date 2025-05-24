@@ -2,6 +2,11 @@
 
 **LibRetro Cheats Installer** is a simple [OnionOS](https://onionui.github.io/) app that downloads and installs `.cht` cheat files from the [libretro-database](https://github.com/libretro/libretro-database) for supported emulation systems on your Miyoo Mini Plus device.
 
+<p align="center">
+  <img src="./docs/images/MainUI-Apps.png" alt="Screenshot 1" width="45%" style="padding: 5px;"/>
+  <img src="./docs/images/Downloading-GBA.png" alt="Screenshot 2" width="45%" style="padding: 5px;"/>
+</p>
+
 ## Features
 
 - Automatically detects enabled systems
