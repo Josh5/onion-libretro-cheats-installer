@@ -4,18 +4,16 @@
 # File Created: Saturday, 24th May 2025 1:33:36 pm
 # Author: Josh.5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 24th May 2025 9:11:10 pm
+# Last Modified: Saturday, 24th May 2025 10:43:39 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
-export cheat_dir="${sdcard:?}/RetroArch/.retroarch/cheats"
+export cheat_dir="${sdcard:?}/RetroArch/.retroarch/cheats/libretro-database"
 export cfg_path="${sdcard:?}/RetroArch/.retroarch/retroarch.cfg"
 export roms_dir="${sdcard:?}/Roms"
 export config_file="${appdir:?}/config/installed-systems.ini"
 
-mkdir -p \
-    "${cheat_dir:?}" \
-    "$(dirname "${config_file:?}")"
+mkdir -p "$(dirname "${config_file:?}")"
 
 print_title() {
     printf "**** %s ****\n\n" "${*}"
@@ -77,68 +75,87 @@ urlencode() {
 
 download_cheats_for_system() {
     local system="$1"
-    local encoded_system
-    encoded_system=$(urlencode "$system")
+    local safe_system=$(printf "%s" "$system" | tr -cs 'a-zA-Z0-9' '_')
+    local encoded_system=$(urlencode "$system")
     local base_api="https://api.github.com/repos/libretro/libretro-database/contents/cht/$encoded_system"
+    local cheat_dir_dest="${cheat_dir:?}/${system:?}"
+    local temp_ini=$(mktemp)
+    local temp_script=$(mktemp)
+    local progress_file=$(mktemp)
 
-    local cheats_json
-    cheats_json=$(curl -sk "$base_api")
+    mkdir -p "$cheat_dir_dest"
+    rm -f "$temp_ini" "$temp_script" "$progress_file"
 
+    # Fetch a list of cheat files
+    local cheats_json=$(curl -sk "$base_api")
     if [ -z "$cheats_json" ] || ! echo "$cheats_json" | jq -e '.[] | select(.name | endswith(".cht"))' >/dev/null 2>&1; then
         print_step_fail "No cheat files found for $system"
         return
     fi
 
-    local cheat_dir_dest="${cheat_dir:?}/${system:?}"
-    mkdir -p "$cheat_dir_dest"
+    # Write .ini file with itemN.filename and itemN.url
+    echo "$cheats_json" | jq -r \
+        '.[] | select(.name | endswith(".cht")) | [.name, .download_url] | @tsv' |
+        awk -F'\t' '{
+            printf("item%d.filename=%s\nitem%d.url=%s\n", ++i, $1, i, $2);
+        }' >"$temp_ini"
 
-    local total
-    total=$(echo "$cheats_json" | jq '[.[] | select(.name | endswith(".cht"))] | length')
+    # Ensure we have some downloads
+    local total=$(grep -c '^item[0-9]\+\.filename=' "$temp_ini")
+    [ "$total" -eq 0 ] && print_step_fail "No valid entries found for $system" && rm -f "$temp_ini" && return
 
-    local completed=0
-    local max_jobs=6
-    local job_count=0
+    # Init percent progress
+    echo 0 >"$progress_file"
 
-    print_progress() {
-        local percent=$((completed * 100 / total))
-        printf "   -> [%3d%%] %s\r" "$percent" "$system"
-    }
+    # Generate and launch download worker script (max DL concurrency 5)
+    cat <<EOF >"$temp_script"
+#!/bin/sh
+count=0
+job_count=0
+total=$total
+while [ \$count -lt \$total ]; do
+    i=\$((count + 1))
+    filename=\$(grep "^item\${i}\\.filename=" "$temp_ini" | cut -d= -f2-)
+    url=\$(grep "^item\${i}\\.url=" "$temp_ini" | cut -d= -f2-)
+    if [ -n "\$filename" ]; then
+        (
+            curl -sk -z "$cheat_dir_dest/\$filename" "\$url" -o "$cheat_dir_dest/\$filename" >/dev/null 2>&1
+            echo \$(((i) * 100 / total)) > "$progress_file"
+        ) &
+        job_count=\$((job_count + 1))
+    fi
 
-    download_file() {
-        local url="$1"
-        local dest="$2"
-        local filename="$3"
-        mkdir -p "$dest"
-        curl -sk -z "$dest/$filename" "$url" -o "$dest/$filename"
-    }
+    if [ "\$job_count" -ge 5 ]; then
+        wait
+        job_count=0
+    fi
 
-    print_progress
+    count=\$((count + 1))
+done
 
-    printf "%s\n" "$cheats_json" |
-        jq -r '.[] | select(.name | endswith(".cht")) | @base64' |
-        while IFS= read -r entry_b64; do
-            _jq() {
-                printf "%s" "$entry_b64" | base64 -d | jq -r "$1"
-            }
+wait
+EOF
 
-            local filename url
-            filename=$(_jq '.name')
-            url=$(_jq '.download_url')
+    chmod +x "$temp_script"
+    "$temp_script" &
 
-            download_file "$url" "$cheat_dir_dest" "$filename" &
-            job_count=$((job_count + 1))
+    # Poll progress file for updates
+    local last_shown=-1
+    while :; do
+        [ -f "$progress_file" ] || break
+        percent=$(cat "$progress_file")
+        [ "$percent" = "$last_shown" ] || {
+            printf "   -> [%3d%%] %s\r" "$percent" "$system"
+            last_shown=$percent
+        }
+        [ "$percent" -ge 100 ] && break
+        sleep 0.2
+    done
 
-            if [ "$job_count" -ge "$max_jobs" ]; then
-                wait
-                completed=$((completed + job_count))
-                print_progress
-                job_count=0
-            fi
-        done
+    # Clean up temp files
+    rm -f "$temp_ini" "$temp_script" "$progress_file"
 
-    wait
-    completed=$((completed + job_count))
-    print_progress
+    # Print final message
     printf "   -> \033[36m[DONE]\033[0m %s\n" "$system"
 }
 
@@ -178,6 +195,25 @@ detect_installed_systems() {
         [ -n "$libretro_name" ] && printf "%s\n" "$libretro_name" >>"${config_file:?}"
     done
 }
+
+monitor_keys() {
+    while IFS= read -rsn1 key </dev/tty; do
+        keycode=$(printf '%d' "'$key")
+        case "$keycode" in
+        127 | 8 | 27) # DEL (127), Backspace (8), Escape (27)
+            printf "\n\033[31m[ABORT]\033[0m Exit key pressed (DEL/BKSP/ESC).\n"
+            kill 0
+            ;;
+        esac
+    done
+}
+
+# Start in background and track its PID
+monitor_keys &
+KEYMON_PID=$!
+
+# Clean up background job on script exit
+trap 'kill $KEYMON_PID 2>/dev/null' EXIT
 
 # Main
 print_title "LibRetro Cheats Installer"

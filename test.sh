@@ -5,7 +5,7 @@
 # File Created: Saturday, 24th May 2025 1:28:44 pm
 # Author: Josh.5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 24th May 2025 2:23:29 pm
+# Last Modified: Saturday, 24th May 2025 9:34:29 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -13,6 +13,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 SCRIPT_PATH="${PROJECT_ROOT:?}/src/scripts/install-cheats.sh"
 
 # Export required variables
+# PROJECT_ROOT=$(pwd)
 export appdir="${PROJECT_ROOT:?}/src"
 export sdcard="${PROJECT_ROOT:?}/temp/SDCARD"
 
