@@ -1,0 +1,61 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["feature-**", "fix-**", staging, master]
+    tags:
+      - "*"
+  schedule:
+    - cron: "30 2 * * 6" # Every Saturday at 2:30am
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up GitHub tag info
+        id: tag_info
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "is_tag=true" >> "$GITHUB_OUTPUT"
+            echo "tag_name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build project
+        run: ./build.sh
+
+      - name: Upload release artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zip
+          path: ./dist/*.zip
+
+      - name: Create or update GitHub Release
+        if: steps.tag_info.outputs.is_tag == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag_info.outputs.tag_name }}
+          name: Release ${{ steps.tag_info.outputs.tag_name }}
+          files: ./dist/*.zip
+
+      - name: Upload latest release (unversioned)
+        if: steps.tag_info.outputs.is_tag == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: Latest Development Build
+          files: ./dist/*.zip
+          draft: false
+          prerelease: true
