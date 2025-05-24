@@ -1,0 +1,6 @@
+{
+    "label": "LibRetro Cheats Installer",
+    "icon": "icon/icon.png",
+    "launch": "launch.sh",
+    "description": "Install/Update LibRetro cheat files on OnionOS"
+}

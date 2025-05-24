@@ -1,0 +1,10 @@
+# Third-party built assets
+/**/.tmp/**
+/**/logs/**
+/**/share/**
+/**/config/**
+
+# Build environment
+/build/**
+/dist/**
+/temp/**
