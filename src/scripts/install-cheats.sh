@@ -4,7 +4,7 @@
 # File Created: Saturday, 24th May 2025 1:33:36 pm
 # Author: Josh.5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Monday, 26th May 2025 11:29:00 am
+# Last Modified: Monday, 26th May 2025 11:31:55 am
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -167,6 +167,8 @@ detect_installed_systems() {
     >"${config_file:?}"
 
     for rom_dir in "${roms_dir:?}"/*; do
+        [ -d "$rom_dir" ] || continue # Skip files
+
         system_name=$(basename "$rom_dir" | tr '[:lower:]' '[:upper:]')
 
         # Reset for each lookup
