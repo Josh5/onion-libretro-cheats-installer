@@ -4,7 +4,7 @@
 # File Created: Saturday, 24th May 2025 1:33:36 pm
 # Author: Josh.5 (jsunnex@gmail.com)
 # -----
-# Last Modified: Saturday, 24th May 2025 10:50:52 pm
+# Last Modified: Sunday, 25th May 2025 3:16:42 pm
 # Modified By: Josh.5 (jsunnex@gmail.com)
 ###
 
@@ -192,8 +192,12 @@ detect_installed_systems() {
             fi
         done <"$ini_file"
 
-        [ -n "$libretro_name" ] && printf "%s\n" "$libretro_name" >>"${config_file:?}"
-        print_step_point "${system_name:?}: ${libretro_name:?}"
+        if [ -n "$libretro_name" ]; then
+            printf "%s\n" "${libretro_name:?}" >>"${config_file:?}"
+            print_step_point "${system_name:?}: ${libretro_name:?}"
+        else
+            print_step_point "${system_name:?}: (NO MATCH FOUND)"
+        fi
     done
 }
 
